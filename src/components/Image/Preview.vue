@@ -44,7 +44,7 @@ async function draw() {
   if (!canvas) return
   const ctx = canvas.getContext('2d')
   if (!ctx) return
-  drawPipeline(ctx, image, {
+  await drawPipeline(ctx, image, {
     cropCoordinates: props.crop,
     adjustments: props.adjustments,
     filter: props.filter,

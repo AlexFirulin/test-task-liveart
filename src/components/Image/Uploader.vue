@@ -5,9 +5,51 @@ import { useImageDropZone } from '../../composables/useImageDropZone'
 const emit = defineEmits<{ select: [files: File[]] }>()
 
 const inputRef = ref<HTMLInputElement | null>(null)
+const sizeWarnings = ref<string[] | null>(null)
+
+// Soft limits only — surfaced as a warning so the user knows editing may be
+// slow, never blocks the upload itself.
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024
+const MAX_MEGAPIXELS = 40_000_000
+
+function getImageDimensions(file: File): Promise<{ width: number; height: number } | null> {
+  const url = URL.createObjectURL(file)
+  const image = new Image()
+  image.src = url
+  return image
+    .decode()
+    .then(() => ({ width: image.naturalWidth, height: image.naturalHeight }))
+    .catch(() => null)
+    .finally(() => URL.revokeObjectURL(url))
+}
+
+async function checkFileSize(file: File): Promise<string[]> {
+  const warnings: string[] = []
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    warnings.push(`${file.name}: file is ${(file.size / 1024 / 1024).toFixed(1)}MB, above the recommended 25MB`)
+  }
+
+  const dimensions = await getImageDimensions(file)
+  if (dimensions) {
+    const megapixels = dimensions.width * dimensions.height
+    if (megapixels > MAX_MEGAPIXELS) {
+      warnings.push(
+        `${file.name}: image is ${Math.round(megapixels / 1_000_000)}MP, above the recommended 40MP — editing may be slow`,
+      )
+    }
+  }
+
+  return warnings
+}
+
+async function handleAccepted(files: File[]) {
+  const warnings = (await Promise.all(files.map(checkFileSize))).flat()
+  sizeWarnings.value = warnings.length > 0 ? warnings : null
+  emit('select', files)
+}
 
 const { isDragOver, rejectedNames, onDragEnter, onDragOver, onDragLeave, onDrop, handleFiles } =
-  useImageDropZone((files) => emit('select', files))
+  useImageDropZone(handleAccepted)
 
 function triggerUpload() {
   inputRef.value?.click()
@@ -66,6 +108,14 @@ const onDropLocal = stop(onDrop)
     @update:model-value="rejectedNames = null"
   >
     Not an image, skipped: {{ rejectedNames?.join(', ') }}
+  </v-snackbar>
+
+  <v-snackbar
+    :model-value="sizeWarnings !== null"
+    color="warning"
+    @update:model-value="sizeWarnings = null"
+  >
+    <div v-for="warning in sizeWarnings" :key="warning">{{ warning }}</div>
   </v-snackbar>
 </template>
 

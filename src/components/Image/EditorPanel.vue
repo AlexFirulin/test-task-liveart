@@ -20,6 +20,7 @@ const props = defineProps<{
   initialFilter: FilterName | null
   initialTransform: Transform
   isNewUpload: boolean
+  isLoading: boolean
 }>()
 
 const emit = defineEmits<{
@@ -192,7 +193,13 @@ defineExpose({ reseed })
 
 <template>
   <v-card>
-    <template v-if="src">
+    <v-card-text
+      v-if="isLoading"
+      class="preview-zone preview-zone--placeholder"
+    >
+      <v-progress-circular indeterminate color="primary" size="48" />
+    </v-card-text>
+    <template v-else-if="src">
       <v-card-title>Edit image</v-card-title>
       <v-card-text>
         <v-row>

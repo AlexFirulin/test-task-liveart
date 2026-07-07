@@ -50,7 +50,7 @@ export async function downloadImage(item: ImageItem): Promise<void> {
     throw new ImageExportError('Could not obtain a 2D canvas context')
   }
 
-  drawPipeline(ctx, image, {
+  await drawPipeline(ctx, image, {
     cropCoordinates: item.cropCoordinates,
     adjustments: item.adjustments,
     filter: item.filter,

@@ -15,12 +15,30 @@ const emit = defineEmits<{
 const importInputRef = ref<HTMLInputElement | null>(null)
 const importTargetId = ref<string | null>(null)
 const actionError = ref<string | null>(null)
+const downloadingIds = ref<Set<string>>(new Set())
+const exportingIds = ref<Set<string>>(new Set())
 
 async function handleDownload(item: ImageItem) {
+  if (downloadingIds.value.has(item.id)) return
+  downloadingIds.value.add(item.id)
   try {
     await downloadImage(item)
   } catch {
     actionError.value = 'Failed to export: the file is corrupted or unavailable'
+  } finally {
+    downloadingIds.value.delete(item.id)
+  }
+}
+
+async function handleExportJson(item: ImageItem) {
+  if (exportingIds.value.has(item.id)) return
+  exportingIds.value.add(item.id)
+  try {
+    downloadOperationsJson(item)
+  } catch {
+    actionError.value = 'Failed to export operations JSON'
+  } finally {
+    exportingIds.value.delete(item.id)
   }
 }
 
@@ -77,7 +95,14 @@ async function handleImport(event: Event) {
             <v-icon icon="mdi-pencil" />
             <v-tooltip activator="parent" location="top">Edit</v-tooltip>
           </v-btn>
-          <v-btn icon="mdi-download" size="small" variant="text" @click="handleDownload(item)">
+          <v-btn
+            icon="mdi-download"
+            size="small"
+            variant="text"
+            :loading="downloadingIds.has(item.id)"
+            :disabled="downloadingIds.has(item.id)"
+            @click="handleDownload(item)"
+          >
             <v-icon icon="mdi-download" />
             <v-tooltip activator="parent" location="top">Download image</v-tooltip>
           </v-btn>
@@ -85,7 +110,9 @@ async function handleImport(event: Event) {
             icon="mdi-code-json"
             size="small"
             variant="text"
-            @click="downloadOperationsJson(item)"
+            :loading="exportingIds.has(item.id)"
+            :disabled="exportingIds.has(item.id)"
+            @click="handleExportJson(item)"
           >
             <v-icon icon="mdi-code-json" />
             <v-tooltip activator="parent" location="top">Export operations JSON</v-tooltip>

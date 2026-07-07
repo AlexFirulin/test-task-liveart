@@ -15,6 +15,7 @@ const imagesStore = useImagesStore()
 const editorPanelRef = ref<InstanceType<typeof EditorPanel> | null>(null)
 const editingId = ref<string | null>(null)
 const isNewUpload = ref(false)
+const isEditorLoading = ref(false)
 
 const editingImage = computed(
   () => imagesStore.images.find((image) => image.id === editingId.value) ?? null,
@@ -24,7 +25,14 @@ async function openEditor(id: string, isNew = false) {
   const previousId = editingId.value
 
   const item = imagesStore.images.find((image) => image.id === id)
-  if (item) await preloadImage(item.url)
+  if (item) {
+    isEditorLoading.value = true
+    try {
+      await preloadImage(item.url)
+    } finally {
+      isEditorLoading.value = false
+    }
+  }
 
   // Switching away from an unapplied new upload abandons it, same as
   // explicitly discarding it — it was never confirmed, so it shouldn't
@@ -122,6 +130,7 @@ function cancelEdit() {
               :initial-filter="editingImage?.filter ?? null"
               :initial-transform="editingImage?.transform ?? defaultTransform"
               :is-new-upload="isNewUpload"
+              :is-loading="isEditorLoading"
               @apply="applyEdits"
               @cancel="cancelEdit"
             />

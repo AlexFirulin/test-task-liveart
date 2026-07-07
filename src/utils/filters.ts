@@ -43,27 +43,32 @@ function clamp255(value: number): number {
   return Math.min(255, Math.max(0, value))
 }
 
-/**
- * Pixel-space fallback for browsers where CanvasRenderingContext2D#filter is a
- * no-op (e.g. Safari < 18), applied in the same order as toCssFilter
- * (brightness -> contrast -> saturate -> filter) using the matrices from the
- * CSS Filter Effects spec (https://www.w3.org/TR/filter-effects-1/#FilterPrimitiveRepresentation),
- * so the exported pixels match the CSS-filtered preview. Only covers
- * greyscale/sepia so far — invert/warm/cool/vintage (FILTER_CSS above) fall
- * back to the brightness/contrast/saturate result alone on unsupported
- * browsers, i.e. the filter itself is dropped there.
- */
-export function applyAdjustmentsToPixels(
+interface AdjustmentParams {
+  brightness: number
+  contrast: number
+  saturation: number
+  contrastIntercept: number
+}
+
+function computeAdjustmentParams(adjustments: Adjustments): AdjustmentParams {
+  const contrast = adjustments.contrast / 100
+  return {
+    brightness: adjustments.brightness / 100,
+    contrast,
+    saturation: adjustments.saturation / 100,
+    contrastIntercept: (0.5 - 0.5 * contrast) * 255,
+  }
+}
+
+/** Processes one contiguous byte range of `data` in place — the shared inner loop for both the single-pass and chunked entry points below. */
+function applyAdjustmentsRange(
   data: Uint8ClampedArray,
-  adjustments: Adjustments,
+  start: number,
+  end: number,
+  { brightness, contrast, saturation, contrastIntercept }: AdjustmentParams,
   filter: FilterName | null,
 ): void {
-  const brightness = adjustments.brightness / 100
-  const contrast = adjustments.contrast / 100
-  const saturation = adjustments.saturation / 100
-  const contrastIntercept = (0.5 - 0.5 * contrast) * 255
-
-  for (let i = 0; i < data.length; i += 4) {
+  for (let i = start; i < end; i += 4) {
     let r = data[i] * brightness
     let g = data[i + 1] * brightness
     let b = data[i + 2] * brightness
@@ -105,5 +110,52 @@ export function applyAdjustmentsToPixels(
     data[i] = clamp255(r)
     data[i + 1] = clamp255(g)
     data[i + 2] = clamp255(b)
+  }
+}
+
+// Canvases at or under this pixel count run in a single synchronous pass —
+// chunking has no benefit there and would only add a wasted rAF round-trip.
+const CHUNKING_PIXEL_THRESHOLD = 4_000_000 // ~2000x2000
+const ROWS_PER_CHUNK = 200
+
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
+}
+
+/**
+ * Pixel-space fallback for browsers where CanvasRenderingContext2D#filter is a
+ * no-op (e.g. Safari < 18), applied in the same order as toCssFilter
+ * (brightness -> contrast -> saturate -> filter) using the matrices from the
+ * CSS Filter Effects spec (https://www.w3.org/TR/filter-effects-1/#FilterPrimitiveRepresentation),
+ * so the exported pixels match the CSS-filtered preview. Only covers
+ * greyscale/sepia so far — invert/warm/cool/vintage (FILTER_CSS above) fall
+ * back to the brightness/contrast/saturate result alone on unsupported
+ * browsers, i.e. the filter itself is dropped there.
+ *
+ * Above CHUNKING_PIXEL_THRESHOLD, processes ROWS_PER_CHUNK rows at a time with
+ * a requestAnimationFrame yield between chunks, so a large canvas (only ever
+ * hit on the Safari < 18 fallback path, but still) doesn't block the main
+ * thread for seconds in one tight loop.
+ */
+export async function applyAdjustmentsToPixels(
+  data: Uint8ClampedArray,
+  width: number,
+  adjustments: Adjustments,
+  filter: FilterName | null,
+): Promise<void> {
+  const params = computeAdjustmentParams(adjustments)
+
+  const totalPixels = data.length / 4
+  if (totalPixels <= CHUNKING_PIXEL_THRESHOLD || width <= 0) {
+    applyAdjustmentsRange(data, 0, data.length, params, filter)
+    return
+  }
+
+  const bytesPerRow = width * 4
+  const chunkBytes = bytesPerRow * ROWS_PER_CHUNK
+  for (let start = 0; start < data.length; start += chunkBytes) {
+    const end = Math.min(data.length, start + chunkBytes)
+    applyAdjustmentsRange(data, start, end, params, filter)
+    await nextFrame()
   }
 }

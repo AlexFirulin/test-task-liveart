@@ -76,7 +76,11 @@ function getTransformedSource(
  * whenever `imageTransforms` are non-neutral, so what the crop tool shows the
  * user lines up exactly with what this function (and the export) draws.
  */
-export function drawPipeline(ctx: Canvas2DContext, image: PipelineImage, item: PipelineItem): void {
+export async function drawPipeline(
+  ctx: Canvas2DContext,
+  image: PipelineImage,
+  item: PipelineItem,
+): Promise<void> {
   const { source, width, height } = getTransformedSource(image, item.transform)
 
   const crop = item.cropCoordinates ?? { left: 0, top: 0, width, height }
@@ -91,7 +95,7 @@ export function drawPipeline(ctx: Canvas2DContext, image: PipelineImage, item: P
 
   if (!filterSupported) {
     const imageData = ctx.getImageData(0, 0, crop.width, crop.height)
-    applyAdjustmentsToPixels(imageData.data, item.adjustments, item.filter)
+    await applyAdjustmentsToPixels(imageData.data, crop.width, item.adjustments, item.filter)
     ctx.putImageData(imageData, 0, 0)
   }
 }
