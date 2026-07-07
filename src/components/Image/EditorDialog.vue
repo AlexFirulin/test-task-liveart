@@ -40,11 +40,30 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
+interface AspectRatioPreset {
+  label: string
+  value: number | undefined
+}
+
+const aspectRatioPresets: AspectRatioPreset[] = [
+  { label: 'Free', value: undefined },
+  { label: '1:1', value: 1 },
+  { label: '16:9', value: 16 / 9 },
+  { label: '4:3', value: 4 / 3 },
+  { label: '3:2', value: 3 / 2 },
+  { label: '2:3', value: 2 / 3 },
+]
+
 const cropperRef = ref<InstanceType<typeof ImageCropper> | null>(null)
 const draftCrop = ref<Coordinates | null>(null)
 const draftAdjustments = ref<Adjustments>({ ...defaultAdjustments })
 const draftFilter = ref<FilterName | null>(null)
 const draftTransform = ref<Transform>({ ...defaultTransform })
+// UI-only: an aspect-ratio preset constrains the crop tool but isn't part of
+// the edit model — it never reaches the store, toOperations, or the JSON
+// export, only the resulting cropCoordinates do.
+const aspectRatioIndex = ref(0)
+const aspectRatio = computed(() => aspectRatioPresets[aspectRatioIndex.value].value)
 const filter = computed(() => toCssFilter(draftAdjustments.value, draftFilter.value))
 const cropperTransform = computed(() => toCssTransform(draftTransform.value))
 
@@ -56,6 +75,7 @@ watch(
     draftAdjustments.value = { ...props.initialAdjustments }
     draftFilter.value = props.initialFilter
     draftTransform.value = { ...props.initialTransform }
+    aspectRatioIndex.value = 0
     if (props.initialCrop === null) cropperRef.value?.reset()
   },
 )
@@ -92,6 +112,7 @@ function resetDraft() {
   draftAdjustments.value = { ...defaultAdjustments }
   draftFilter.value = null
   draftTransform.value = { ...defaultTransform }
+  aspectRatioIndex.value = 0
   cropperRef.value?.reset()
 }
 
@@ -117,8 +138,24 @@ function apply() {
           <v-btn icon="mdi-flip-horizontal" size="small" variant="text" @click="flipDraftX" />
           <v-btn icon="mdi-flip-vertical" size="small" variant="text" @click="flipDraftY" />
         </div>
+        <v-chip-group v-model="aspectRatioIndex" mandatory class="mb-2">
+          <v-chip
+            v-for="(preset, index) in aspectRatioPresets"
+            :key="preset.label"
+            :value="index"
+            size="small"
+            variant="outlined"
+          >
+            {{ preset.label }}
+          </v-chip>
+        </v-chip-group>
         <div :style="{ filter, transform: cropperTransform }">
-          <ImageCropper ref="cropperRef" :src="src" @change="draftCrop = $event" />
+          <ImageCropper
+            ref="cropperRef"
+            :src="src"
+            :aspect-ratio="aspectRatio"
+            @change="draftCrop = $event"
+          />
         </div>
         <AdjustmentsPanel v-model="draftAdjustments" class="mt-4" />
         <FilterPanel v-model="draftFilter" class="mt-2" />

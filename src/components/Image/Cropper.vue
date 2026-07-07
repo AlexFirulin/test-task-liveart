@@ -4,7 +4,7 @@ import { Cropper } from 'vue-advanced-cropper'
 import { ref } from 'vue'
 import 'vue-advanced-cropper/dist/style.css'
 
-defineProps<{ src: string | null }>()
+defineProps<{ src: string | null; aspectRatio?: number }>()
 const emit = defineEmits<{ change: [coordinates: Coordinates] }>()
 
 const cropperRef = ref<InstanceType<typeof Cropper> | null>(null)
@@ -27,6 +27,7 @@ defineExpose({ reset })
     :src="src"
     class="image-cropper"
     image-restriction="stencil"
+    :stencil-props="{ aspectRatio }"
     @change="onChange"
   />
 </template>
