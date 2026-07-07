@@ -19,10 +19,11 @@ function triggerDownload(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function replaceExtension(name: string, ext: string): string {
+function replaceExtension(name: string, ext: string, uniqueSuffix?: string): string {
   const lastDot = name.lastIndexOf('.')
   const base = lastDot > 0 ? name.slice(0, lastDot) : name
-  return `${base}.${ext}`
+  const suffix = uniqueSuffix ? `-${uniqueSuffix}` : ''
+  return `${base}${suffix}.${ext}`
 }
 
 /**
@@ -34,8 +35,13 @@ function replaceExtension(name: string, ext: string): string {
  * Throws ImageExportError (rather than failing silently) if the source image
  * can't be decoded — e.g. the underlying file was corrupted, moved, or the
  * object URL was revoked — or if a 2D context can't be obtained at all.
+ *
+ * `uniqueSuffix` (typically the first chars of the item's id) is appended to
+ * the filename when the caller has detected another list item sharing the
+ * same original filename — otherwise two same-named uploads would silently
+ * overwrite each other's downloaded file in the browser's downloads folder.
  */
-export async function downloadImage(item: ImageItem): Promise<void> {
+export async function downloadImage(item: ImageItem, uniqueSuffix?: string): Promise<void> {
   const image = new Image()
   image.src = item.url
   try {
@@ -57,11 +63,14 @@ export async function downloadImage(item: ImageItem): Promise<void> {
     transform: item.transform,
   })
 
-  const blob = await canvas.convertToBlob({ type: 'image/png' })
-  triggerDownload(blob, replaceExtension(item.file.name, 'png'))
+  const isJpeg = item.file.type === 'image/jpeg'
+  const blob = isJpeg
+    ? await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 })
+    : await canvas.convertToBlob({ type: 'image/png' })
+  triggerDownload(blob, replaceExtension(item.file.name, isJpeg ? 'jpg' : 'png', uniqueSuffix))
 }
 
-export function downloadOperationsJson(item: ImageItem): void {
+export function downloadOperationsJson(item: ImageItem, uniqueSuffix?: string): void {
   const payload = {
     version: 1,
     operations: toOperations({
@@ -72,5 +81,6 @@ export function downloadOperationsJson(item: ImageItem): void {
     }),
   }
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-  triggerDownload(blob, `${item.file.name}.operations.json`)
+  const suffix = uniqueSuffix ? `-${uniqueSuffix}` : ''
+  triggerDownload(blob, `${item.file.name}${suffix}.operations.json`)
 }
