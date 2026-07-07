@@ -5,7 +5,7 @@ import { downloadImage, downloadOperationsJson } from '../../utils/export'
 import { type OperationsInput, parseOperationsFile } from '../../utils/operations'
 import ImagePreview from './Preview.vue'
 
-defineProps<{ images: ImageItem[] }>()
+defineProps<{ images: ImageItem[]; activeId: string | null }>()
 const emit = defineEmits<{
   edit: [id: string]
   remove: [id: string]
@@ -43,7 +43,11 @@ async function handleImport(event: Event) {
     <v-list-item v-if="images.length === 0">
       <v-list-item-title class="text-center">No images uploaded</v-list-item-title>
     </v-list-item>
-    <v-list-item v-for="item in images" :key="item.id">
+    <v-list-item
+      v-for="item in images"
+      :key="item.id"
+      :class="{ 'image-list__item--active': item.id === activeId }"
+    >
       <template #prepend>
         <div class="image-list__thumb">
           <ImagePreview
@@ -61,16 +65,31 @@ async function handleImport(event: Event) {
 
       <template #append>
         <div class="d-flex align-center ga-1">
-          <v-btn icon="mdi-pencil" size="small" variant="text" @click="emit('edit', item.id)" />
-          <v-btn icon="mdi-download" size="small" variant="text" @click="downloadImage(item)" />
+          <v-btn icon="mdi-pencil" size="small" variant="text" @click="emit('edit', item.id)">
+            <v-icon icon="mdi-pencil" />
+            <v-tooltip activator="parent" location="top">Edit</v-tooltip>
+          </v-btn>
+          <v-btn icon="mdi-download" size="small" variant="text" @click="downloadImage(item)">
+            <v-icon icon="mdi-download" />
+            <v-tooltip activator="parent" location="top">Download image</v-tooltip>
+          </v-btn>
           <v-btn
             icon="mdi-code-json"
             size="small"
             variant="text"
             @click="downloadOperationsJson(item)"
-          />
-          <v-btn icon="mdi-upload" size="small" variant="text" @click="triggerImport(item.id)" />
-          <v-btn icon="mdi-delete" size="small" variant="text" @click="emit('remove', item.id)" />
+          >
+            <v-icon icon="mdi-code-json" />
+            <v-tooltip activator="parent" location="top">Export operations JSON</v-tooltip>
+          </v-btn>
+          <v-btn icon="mdi-upload" size="small" variant="text" @click="triggerImport(item.id)">
+            <v-icon icon="mdi-upload" />
+            <v-tooltip activator="parent" location="top">Import operations JSON</v-tooltip>
+          </v-btn>
+          <v-btn icon="mdi-delete" size="small" variant="text" @click="emit('remove', item.id)">
+            <v-icon icon="mdi-delete" />
+            <v-tooltip activator="parent" location="top">Delete</v-tooltip>
+          </v-btn>
         </div>
       </template>
     </v-list-item>
@@ -100,5 +119,10 @@ async function handleImport(event: Event) {
   margin-right: 12px;
   overflow: hidden;
   border-radius: 4px;
+}
+
+.image-list__item--active {
+  background: rgba(var(--v-theme-primary), 0.12);
+  border-left: 3px solid rgb(var(--v-theme-primary));
 }
 </style>

@@ -67,6 +67,14 @@ function getTransformedSource(
  * adjustments/filter via the identical CSS filter string used everywhere else
  * (or the manual pixel fallback where ctx.filter isn't supported). One
  * function, every call site, so preview and export can never drift apart.
+ *
+ * Coordinate-space contract: `cropCoordinates` must already be in the
+ * *transformed* image's space, matching the transform -> crop pipeline order.
+ * This holds by construction — `EditorPanel.vue` drives rotate/flip through
+ * vue-advanced-cropper's own rotate()/flip() methods (not a CSS overlay), and
+ * the library reports crop `coordinates` in its current post-transform space
+ * whenever `imageTransforms` are non-neutral, so what the crop tool shows the
+ * user lines up exactly with what this function (and the export) draws.
  */
 export function drawPipeline(ctx: Canvas2DContext, image: PipelineImage, item: PipelineItem): void {
   const { source, width, height } = getTransformedSource(image, item.transform)

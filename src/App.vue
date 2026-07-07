@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Coordinates } from 'vue-advanced-cropper'
 import { computed, ref } from 'vue'
-import ImageEditorDialog from './components/Image/EditorDialog.vue'
+import EditorPanel from './components/Image/EditorPanel.vue'
 import ImageList from './components/Image/List.vue'
 import ImageUploader from './components/Image/Uploader.vue'
 import { useImagesStore } from './stores/images'
@@ -11,7 +11,6 @@ import { type Transform, defaultTransform } from './utils/transform'
 
 const imagesStore = useImagesStore()
 const editingId = ref<string | null>(null)
-const editorOpen = ref(false)
 const isNewUpload = ref(false)
 
 const editingImage = computed(
@@ -19,18 +18,33 @@ const editingImage = computed(
 )
 
 async function openEditor(id: string, isNew = false) {
-  editingId.value = id
-  isNewUpload.value = isNew
+  const previousId = editingId.value
 
   const item = imagesStore.images.find((image) => image.id === id)
   if (item) await preloadImage(item.url)
 
-  editorOpen.value = true
+  // Switching away from an unapplied new upload abandons it, same as
+  // explicitly discarding it — it was never confirmed, so it shouldn't
+  // linger in the list.
+  if (previousId && previousId !== id && isNewUpload.value) {
+    imagesStore.removeImage(previousId)
+  }
+
+  editingId.value = id
+  isNewUpload.value = isNew
 }
 
-function handleAdd(file: File | null) {
-  if (!file) return
-  openEditor(imagesStore.addImage(file), true)
+function handleAdd(files: File[]) {
+  const ids = files.map((file) => imagesStore.addImage(file))
+  if (ids.length === 1) openEditor(ids[0], true)
+}
+
+function removeImage(id: string) {
+  imagesStore.removeImage(id)
+  if (editingId.value === id) {
+    editingId.value = null
+    isNewUpload.value = false
+  }
 }
 
 let dragDepth = 0
@@ -86,39 +100,48 @@ function applyEdits(payload: {
   imagesStore.setAdjustments(editingId.value, payload.adjustments)
   imagesStore.setFilter(editingId.value, payload.filter)
   imagesStore.setTransform(editingId.value, payload.transform)
+  editingId.value = null
+  isNewUpload.value = false
 }
 
 function cancelEdit() {
   if (editingId.value && isNewUpload.value) imagesStore.removeImage(editingId.value)
   editingId.value = null
+  isNewUpload.value = false
 }
 </script>
 
 <template>
   <v-app @dragenter="onDragEnter" @dragover="onDragOver" @dragleave="onDragLeave" @drop="onDrop">
     <v-main>
-      <v-container style="max-width: 720px" class="py-8">
+      <v-container fluid class="py-8">
         <h1 class="text-h4 mb-6">Image Editor</h1>
 
-        <ImageUploader class="mb-4" @update:model-value="handleAdd" />
-
-        <ImageList
-          :images="imagesStore.images"
-          @edit="openEditor"
-          @remove="imagesStore.removeImage"
-          @import="imagesStore.applyOperations"
-        />
-
-        <ImageEditorDialog
-          v-model="editorOpen"
-          :src="editingImage?.url ?? null"
-          :initial-crop="editingImage?.cropCoordinates ?? null"
-          :initial-adjustments="editingImage?.adjustments ?? defaultAdjustments"
-          :initial-filter="editingImage?.filter ?? null"
-          :initial-transform="editingImage?.transform ?? defaultTransform"
-          @apply="applyEdits"
-          @cancel="cancelEdit"
-        />
+        <v-row>
+          <v-col cols="12" md="4" lg="3">
+            <ImageUploader class="mb-4" @select="handleAdd" />
+            <ImageList
+              :images="imagesStore.images"
+              :active-id="editingId"
+              @edit="openEditor"
+              @remove="removeImage"
+              @import="imagesStore.applyOperations"
+            />
+          </v-col>
+          <v-col cols="12" md="8" lg="9">
+            <EditorPanel
+              :editing-id="editingId"
+              :src="editingImage?.url ?? null"
+              :initial-crop="editingImage?.cropCoordinates ?? null"
+              :initial-adjustments="editingImage?.adjustments ?? defaultAdjustments"
+              :initial-filter="editingImage?.filter ?? null"
+              :initial-transform="editingImage?.transform ?? defaultTransform"
+              :is-new-upload="isNewUpload"
+              @apply="applyEdits"
+              @cancel="cancelEdit"
+            />
+          </v-col>
+        </v-row>
       </v-container>
     </v-main>
 
