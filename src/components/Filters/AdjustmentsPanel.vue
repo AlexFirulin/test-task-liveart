@@ -123,8 +123,23 @@ function resetToDefault<K extends keyof Adjustments>(key: K) {
 }
 
 .adjustments-panel__input {
-  flex: 0 0 64px;
-  width: 64px;
+  flex: 0 0 76px;
+  width: 76px;
+}
+
+.adjustments-panel__input :deep(input) {
+  text-align: center;
+  padding-inline: 4px;
+  /* Hide the native number spinner so 3-digit values (up to 200) have
+     room — Vuetify's compact outlined padding plus the browser's spin
+     buttons otherwise leaves too little width and the digits wrap. */
+  -moz-appearance: textfield;
+}
+
+.adjustments-panel__input :deep(input::-webkit-outer-spin-button),
+.adjustments-panel__input :deep(input::-webkit-inner-spin-button) {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .adjustments-panel__label {
