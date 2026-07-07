@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import type { Coordinates, ImageTransforms } from 'vue-advanced-cropper'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useEditHistory } from '../../composables/useEditHistory'
 import type { Adjustments, FilterName } from '../../types/adjustments'
+import type { Crop } from '../../types/crop'
 import type { OperationsInput } from '../../types/operations'
 import type { Transform } from '../../types/transform'
 import { debounce } from '../../utils/debounce'
 import { defaultAdjustments, toCssFilter } from '../../utils/filters'
-import { defaultTransform, normalizeRotation } from '../../utils/transform'
+import { defaultTransform } from '../../utils/transform'
 import AdjustmentsPanel from '../Filters/AdjustmentsPanel.vue'
 import FilterPanel from '../Filters/FilterPanel.vue'
 import ImageCropper from './Cropper.vue'
@@ -22,7 +22,7 @@ const CROP_HISTORY_DEBOUNCE_MS = 400
 const props = defineProps<{
   editingId: string | null
   src: string | null
-  initialCrop: Coordinates | null
+  initialCrop: Crop | null
   initialAdjustments: Adjustments
   initialFilter: FilterName | null
   initialTransform: Transform
@@ -33,7 +33,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   apply: [
     payload: {
-      crop: Coordinates | null
+      crop: Crop | null
       adjustments: Adjustments
       filter: FilterName | null
       transform: Transform
@@ -57,17 +57,14 @@ const aspectRatioPresets: AspectRatioPreset[] = [
 ]
 
 const cropperRef = ref<InstanceType<typeof ImageCropper> | null>(null)
-const draftCrop = ref<Coordinates | null>(null)
+const draftCrop = ref<Crop | null>(null)
 const draftAdjustments = ref<Adjustments>({ ...defaultAdjustments })
 const draftFilter = ref<FilterName | null>(null)
 // The cropper is the source of truth for rotate/flip (it applies them
-// natively, see below) — this mirrors its last-reported imageTransforms so
-// draftTransform is always a plain readout, and so seeding can compute a
-// delta from the cropper's *actual* current state rather than assuming one.
-const cropperTransforms = ref<ImageTransforms>({
-  rotate: 0,
-  flip: { horizontal: false, vertical: false },
-})
+// natively, see below) — this is always a plain readout of its last-reported
+// Transform. The incremental/raw ImageTransforms bookkeeping needed to
+// compute rotate/flip deltas lives inside Cropper.vue now (applyTransform),
+// not here — EditorPanel only ever deals in our own normalized Transform.
 const draftTransform = ref<Transform>({ ...defaultTransform })
 // UI-only: an aspect-ratio preset constrains the crop tool but isn't part of
 // the edit model — it never reaches the store, toOperations, or the JSON
@@ -117,19 +114,15 @@ onBeforeUnmount(() => {
 })
 
 /**
- * The cropper reports crop coordinates and rotate/flip together on every
- * change (drag, resize, or our own rotate()/flip() calls below) — this is
- * the single place draftCrop/draftTransform are ever written from user or
- * programmatic cropper activity.
+ * The cropper reports crop and transform together on every change (drag,
+ * resize, or our own rotate()/flip() calls below), already normalized to our
+ * own Crop/Transform types (see Cropper.vue) — this is the single place
+ * draftCrop/draftTransform are ever written from user or programmatic
+ * cropper activity.
  */
-function onCropperChange(coordinates: Coordinates, transforms: ImageTransforms) {
-  draftCrop.value = coordinates
-  cropperTransforms.value = transforms
-  draftTransform.value = {
-    rotate: normalizeRotation(transforms.rotate),
-    flipX: transforms.flip.horizontal,
-    flipY: transforms.flip.vertical,
-  }
+function onCropperChange(crop: Crop, transform: Transform) {
+  draftCrop.value = crop
+  draftTransform.value = transform
   // Only a real user interaction (crop drag/resize, or a rotate/flip button
   // click) should ever reach here while unguarded — programmatic restoration
   // always wraps its call in isRestoringCropperState and handles history
@@ -138,35 +131,17 @@ function onCropperChange(coordinates: Coordinates, transforms: ImageTransforms) 
 }
 
 /**
- * Drives the cropper to a target crop/transform state. rotate()/flip() on
- * vue-advanced-cropper are incremental (rotate adds to the current angle,
- * flip toggles per axis), so this reads the cropper's last-reported state
- * (cropperTransforms, not draftTransform) and applies only the delta needed
- * — correct regardless of whatever the cropper's internal angle happens to
- * be, instead of assuming a zero baseline.
+ * Resets the cropper first when there's no saved crop to preserve, then asks
+ * it to reach the target Transform — reset() must be *awaited* first since it
+ * resets the cropper's rotate/flip to its own baseline asynchronously;
+ * applying a transform before that settles would race the reset's own
+ * onChange and get clobbered by it. The rotate/flip delta math itself lives
+ * in Cropper.vue#applyTransform now, not here.
  */
-function applyCropperState(targetCrop: Coordinates | null, targetTransform: Transform) {
-  const current = cropperTransforms.value
-  const rotateDelta = targetTransform.rotate - normalizeRotation(current.rotate)
-  if (rotateDelta !== 0) cropperRef.value?.rotate(rotateDelta)
-
-  const needsFlipX = current.flip.horizontal !== targetTransform.flipX
-  const needsFlipY = current.flip.vertical !== targetTransform.flipY
-  if (needsFlipX || needsFlipY) cropperRef.value?.flip(needsFlipX, needsFlipY)
-
-  draftCrop.value = targetCrop
-}
-
-/**
- * Resets the cropper first when there's no saved crop to preserve, then
- * applies the target rotate/flip on top — reset() must be *awaited* before
- * reading cropperTransforms again, since it resets transforms to the
- * cropper's own baseline asynchronously; computing the delta before that
- * settles would race the reset's own onChange and get clobbered by it.
- */
-async function restoreCropperState(targetCrop: Coordinates | null, targetTransform: Transform) {
+async function restoreCropperState(targetCrop: Crop | null, targetTransform: Transform) {
   if (targetCrop === null) await cropperRef.value?.reset()
-  applyCropperState(targetCrop, targetTransform)
+  cropperRef.value?.applyTransform(targetTransform)
+  draftCrop.value = targetCrop
 }
 
 /**
@@ -177,7 +152,7 @@ async function restoreCropperState(targetCrop: Coordinates | null, targetTransfo
  * an undo/redo result (neither — the snapshot IS the history entry already).
  */
 async function restoreCropperStateGuarded(
-  targetCrop: Coordinates | null,
+  targetCrop: Crop | null,
   targetTransform: Transform,
 ): Promise<void> {
   isRestoringCropperState.value = true

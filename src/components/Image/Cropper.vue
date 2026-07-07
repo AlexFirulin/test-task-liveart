@@ -1,19 +1,41 @@
 <script setup lang="ts">
-import type { Coordinates, CropperResult, ImageTransforms } from 'vue-advanced-cropper'
+import type { CropperResult, ImageTransforms } from 'vue-advanced-cropper'
 import { Cropper } from 'vue-advanced-cropper'
 import { ref } from 'vue'
 import 'vue-advanced-cropper/dist/style.css'
+import type { Crop } from '../../types/crop'
+import type { Transform } from '../../types/transform'
+import { normalizeRotation } from '../../utils/transform'
 
+// This is the only file in the app that imports vue-advanced-cropper (aside
+// from the `<Cropper>` component it wraps below) — everywhere else works
+// with our own Crop/Transform types. rawTransforms is the library's own
+// ImageTransforms shape (unbounded, incremental `rotate`, boolean flip
+// pair); it never leaves this component. `emit('change', ...)` and
+// `applyTransform` both only ever deal in our normalized `Transform`.
 defineProps<{ src: string | null; aspectRatio?: number }>()
 const emit = defineEmits<{
-  change: [coordinates: Coordinates, transforms: ImageTransforms]
+  change: [crop: Crop, transform: Transform]
   ready: []
 }>()
 
 const cropperRef = ref<InstanceType<typeof Cropper> | null>(null)
+const rawTransforms = ref<ImageTransforms>({ rotate: 0, flip: { horizontal: false, vertical: false } })
+
+function toTransform(transforms: ImageTransforms): Transform {
+  return {
+    rotate: normalizeRotation(transforms.rotate),
+    flipX: transforms.flip.horizontal,
+    flipY: transforms.flip.vertical,
+  }
+}
 
 function onChange(result: CropperResult) {
-  emit('change', result.coordinates, result.image.transforms)
+  rawTransforms.value = result.image.transforms
+  // result.coordinates (the library's Coordinates) and our Crop are the same
+  // shape (`{ left, top, width, height }`), so this is a type-only relabel,
+  // not a conversion — no data is dropped or reshaped.
+  emit('change', result.coordinates, toTransform(result.image.transforms))
 }
 
 function reset() {
@@ -42,7 +64,27 @@ function flip(horizontal: boolean, vertical: boolean) {
   )?.flip(horizontal, vertical, { transitions: false })
 }
 
-defineExpose({ reset, rotate, flip })
+/**
+ * Drives the cropper to an absolute target Transform. rotate()/flip() on
+ * vue-advanced-cropper are incremental (rotate adds to the current angle,
+ * flip toggles per axis), so this reads the library's last-reported raw
+ * transforms and applies only the delta needed — correct regardless of
+ * whatever the cropper's internal angle happens to be, instead of assuming a
+ * zero baseline. Kept here (rather than in EditorPanel, which only ever
+ * wants "reach this Transform") so the caller never needs to know
+ * ImageTransforms' incremental/raw shape at all.
+ */
+function applyTransform(target: Transform): void {
+  const current = rawTransforms.value
+  const rotateDelta = target.rotate - normalizeRotation(current.rotate)
+  if (rotateDelta !== 0) rotate(rotateDelta)
+
+  const needsFlipX = current.flip.horizontal !== target.flipX
+  const needsFlipY = current.flip.vertical !== target.flipY
+  if (needsFlipX || needsFlipY) flip(needsFlipX, needsFlipY)
+}
+
+defineExpose({ reset, rotate, flip, applyTransform })
 </script>
 
 <template>

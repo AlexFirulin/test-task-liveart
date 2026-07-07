@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Coordinates } from 'vue-advanced-cropper'
 import { computed, ref } from 'vue'
 import EditorPanel from './components/Image/EditorPanel.vue'
 import ImageList from './components/Image/List.vue'
@@ -7,6 +6,7 @@ import ImageUploader from './components/Image/Uploader.vue'
 import { useImageDropZone } from './composables/useImageDropZone'
 import { useImagesStore } from './stores/images'
 import type { Adjustments, FilterName } from './types/adjustments'
+import type { Crop } from './types/crop'
 import type { OperationsInput } from './types/operations'
 import type { Transform } from './types/transform'
 import { defaultAdjustments } from './utils/filters'
@@ -84,7 +84,7 @@ const {
 })
 
 function applyEdits(payload: {
-  crop: Coordinates | null
+  crop: Crop | null
   adjustments: Adjustments
   filter: FilterName | null
   transform: Transform

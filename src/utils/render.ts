@@ -1,11 +1,11 @@
-import type { Coordinates } from 'vue-advanced-cropper'
 import type { Adjustments, FilterName } from '../types/adjustments'
+import type { Crop } from '../types/crop'
 import type { Transform } from '../types/transform'
 import { applyAdjustmentsToPixels, toCssFilter } from './filters'
 import { isNeutralTransform, rotatedDimensions } from './transform'
 
 export interface PipelineItem {
-  cropCoordinates: Coordinates | null
+  cropCoordinates: Crop | null
   adjustments: Adjustments
   filter: FilterName | null
   transform: Transform

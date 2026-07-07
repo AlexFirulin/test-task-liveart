@@ -106,6 +106,8 @@ src/
 tests/                      # mirrors src/'s shape — tests/utils, tests/stores
 ```
 
+`Cropper.vue` is the only file that imports `vue-advanced-cropper` — the rest of the app works with our own `Crop`/`Transform` types (`src/types/`), so the domain model stays library-agnostic.
+
 ## Original brief
 
 <details>

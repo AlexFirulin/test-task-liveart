@@ -1,12 +1,12 @@
-import type { Coordinates } from 'vue-advanced-cropper'
 import type { Adjustments, FilterName } from './adjustments'
+import type { Crop } from './crop'
 import type { Transform } from './transform'
 
 export interface TransformOperation extends Transform {
   type: 'transform'
 }
 
-export interface CropOperation extends Coordinates {
+export interface CropOperation extends Crop {
   type: 'crop'
 }
 
@@ -23,7 +23,7 @@ export type Operation = TransformOperation | CropOperation | AdjustOperation | F
 
 export interface OperationsInput {
   transform: Transform
-  crop: Coordinates | null
+  crop: Crop | null
   adjustments: Adjustments
   filter: FilterName | null
 }

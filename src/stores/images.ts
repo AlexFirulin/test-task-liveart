@@ -1,7 +1,7 @@
-import type { Coordinates } from 'vue-advanced-cropper'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Adjustments, FilterName } from '../types/adjustments'
+import type { Crop } from '../types/crop'
 import type { ImageItem } from '../types/image'
 import type { OperationsInput } from '../types/operations'
 import type { Transform } from '../types/transform'
@@ -36,7 +36,7 @@ export const useImagesStore = defineStore('images', () => {
     images.value.splice(index, 1)
   }
 
-  function setCrop(id: string, coordinates: Coordinates | null) {
+  function setCrop(id: string, coordinates: Crop | null) {
     const item = findImage(id)
     if (item) item.cropCoordinates = coordinates
   }
