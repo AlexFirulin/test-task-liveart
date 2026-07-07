@@ -1,4 +1,4 @@
-import type { ImageItem } from '../stores/images'
+import type { ImageItem } from '../types/image'
 import { toOperations } from './operations'
 import { drawPipeline } from './render'
 

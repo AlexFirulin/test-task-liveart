@@ -6,10 +6,12 @@ import ImageList from './components/Image/List.vue'
 import ImageUploader from './components/Image/Uploader.vue'
 import { useImageDropZone } from './composables/useImageDropZone'
 import { useImagesStore } from './stores/images'
-import { type Adjustments, type FilterName, defaultAdjustments } from './utils/filters'
-import type { OperationsInput } from './utils/operations'
+import type { Adjustments, FilterName } from './types/adjustments'
+import type { OperationsInput } from './types/operations'
+import type { Transform } from './types/transform'
+import { defaultAdjustments } from './utils/filters'
 import { preloadImage } from './utils/preload'
-import { type Transform, defaultTransform } from './utils/transform'
+import { defaultTransform } from './utils/transform'
 
 const imagesStore = useImagesStore()
 const editorPanelRef = ref<InstanceType<typeof EditorPanel> | null>(null)

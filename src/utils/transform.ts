@@ -1,10 +1,4 @@
-export type RotationDegrees = 0 | 90 | 180 | 270
-
-export interface Transform {
-  rotate: RotationDegrees
-  flipX: boolean
-  flipY: boolean
-}
+import type { RotationDegrees, Transform } from '../types/transform'
 
 export const defaultTransform: Transform = { rotate: 0, flipX: false, flipY: false }
 

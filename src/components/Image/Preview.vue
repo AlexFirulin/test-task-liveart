@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { Coordinates } from 'vue-advanced-cropper'
 import { nextTick, ref, watch } from 'vue'
-import type { Adjustments, FilterName } from '../../utils/filters'
+import type { Adjustments, FilterName } from '../../types/adjustments'
+import type { Transform } from '../../types/transform'
 import { drawPipeline } from '../../utils/render'
-import type { Transform } from '../../utils/transform'
 
 const props = defineProps<{
   src: string | null

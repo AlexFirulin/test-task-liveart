@@ -1,19 +1,12 @@
 import type { Coordinates } from 'vue-advanced-cropper'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { type Adjustments, type FilterName, defaultAdjustments } from '../utils/filters'
-import type { OperationsInput } from '../utils/operations'
-import { type Transform, defaultTransform } from '../utils/transform'
-
-export interface ImageItem {
-  id: string
-  file: File
-  url: string
-  cropCoordinates: Coordinates | null
-  adjustments: Adjustments
-  filter: FilterName | null
-  transform: Transform
-}
+import type { Adjustments, FilterName } from '../types/adjustments'
+import type { ImageItem } from '../types/image'
+import type { OperationsInput } from '../types/operations'
+import type { Transform } from '../types/transform'
+import { defaultAdjustments } from '../utils/filters'
+import { defaultTransform } from '../utils/transform'
 
 export const useImagesStore = defineStore('images', () => {
   const images = ref<ImageItem[]>([])

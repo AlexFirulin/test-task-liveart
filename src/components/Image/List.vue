@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { ImageItem } from '../../stores/images'
+import type { ImageItem } from '../../types/image'
+import type { OperationsInput } from '../../types/operations'
 import { downloadImage, downloadOperationsJson } from '../../utils/export'
-import { type OperationsInput, parseOperationsFile } from '../../utils/operations'
+import { parseOperationsFile } from '../../utils/operations'
 import ImagePreview from './Preview.vue'
 
 const props = defineProps<{ images: ImageItem[]; activeId: string | null }>()

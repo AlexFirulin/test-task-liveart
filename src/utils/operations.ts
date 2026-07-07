@@ -1,37 +1,8 @@
-import type { Coordinates } from 'vue-advanced-cropper'
-import {
-  type Adjustments,
-  type FilterName,
-  defaultAdjustments,
-  isNeutralAdjustments,
-} from './filters'
-import { type Transform, defaultTransform, isNeutralTransform } from './transform'
-
-export interface TransformOperation extends Transform {
-  type: 'transform'
-}
-
-export interface CropOperation extends Coordinates {
-  type: 'crop'
-}
-
-export interface AdjustOperation extends Adjustments {
-  type: 'adjust'
-}
-
-export interface FilterOperation {
-  type: 'filter'
-  name: FilterName
-}
-
-export type Operation = TransformOperation | CropOperation | AdjustOperation | FilterOperation
-
-export interface OperationsInput {
-  transform: Transform
-  crop: Coordinates | null
-  adjustments: Adjustments
-  filter: FilterName | null
-}
+import type { FilterName } from '../types/adjustments'
+import type { Operation, OperationsInput } from '../types/operations'
+import type { Transform } from '../types/transform'
+import { defaultAdjustments, isNeutralAdjustments } from './filters'
+import { defaultTransform, isNeutralTransform } from './transform'
 
 /**
  * The edit pipeline as data: a fixed, ordered slate of operations

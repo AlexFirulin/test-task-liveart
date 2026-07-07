@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Adjustments } from '../../utils/filters'
+import type { Adjustments } from '../../types/adjustments'
 
 const props = defineProps<{ modelValue: Adjustments }>()
 const emit = defineEmits<{ 'update:modelValue': [value: Adjustments] }>()

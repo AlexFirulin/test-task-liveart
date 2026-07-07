@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import type { Coordinates, ImageTransforms } from 'vue-advanced-cropper'
 import { computed, nextTick, ref, watch } from 'vue'
-import {
-  type Adjustments,
-  type FilterName,
-  defaultAdjustments,
-  toCssFilter,
-} from '../../utils/filters'
-import { type Transform, defaultTransform, normalizeRotation } from '../../utils/transform'
+import type { Adjustments, FilterName } from '../../types/adjustments'
+import type { Transform } from '../../types/transform'
+import { defaultAdjustments, toCssFilter } from '../../utils/filters'
+import { defaultTransform, normalizeRotation } from '../../utils/transform'
 import AdjustmentsPanel from '../Filters/AdjustmentsPanel.vue'
 import FilterPanel from '../Filters/FilterPanel.vue'
 import ImageCropper from './Cropper.vue'

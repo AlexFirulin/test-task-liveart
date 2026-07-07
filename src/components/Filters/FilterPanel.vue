@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { FilterName } from '../../utils/filters'
+import type { FilterName } from '../../types/adjustments'
 
 defineProps<{ modelValue: FilterName | null }>()
 const emit = defineEmits<{ 'update:modelValue': [value: FilterName | null] }>()

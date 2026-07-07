@@ -1,8 +1,4 @@
-export interface Adjustments {
-  brightness: number
-  contrast: number
-  saturation: number
-}
+import type { Adjustments, FilterName } from '../types/adjustments'
 
 export const defaultAdjustments: Adjustments = {
   brightness: 100,
@@ -17,8 +13,6 @@ export function isNeutralAdjustments(adjustments: Adjustments): boolean {
     adjustments.saturation === defaultAdjustments.saturation
   )
 }
-
-export type FilterName = 'greyscale' | 'sepia' | 'invert' | 'warm' | 'cool' | 'vintage'
 
 const FILTER_CSS: Record<FilterName, string> = {
   greyscale: 'grayscale(1)',
