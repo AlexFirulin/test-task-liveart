@@ -14,7 +14,15 @@ const emit = defineEmits<{
 
 const importInputRef = ref<HTMLInputElement | null>(null)
 const importTargetId = ref<string | null>(null)
-const importError = ref<string | null>(null)
+const actionError = ref<string | null>(null)
+
+async function handleDownload(item: ImageItem) {
+  try {
+    await downloadImage(item)
+  } catch {
+    actionError.value = 'Failed to export: the file is corrupted or unavailable'
+  }
+}
 
 function triggerImport(id: string) {
   importTargetId.value = id
@@ -33,7 +41,7 @@ async function handleImport(event: Event) {
     const operationsInput = parseOperationsFile(await file.text())
     emit('import', id, operationsInput)
   } catch (error) {
-    importError.value = error instanceof Error ? error.message : 'Failed to import operations JSON'
+    actionError.value = error instanceof Error ? error.message : 'Failed to import operations JSON'
   }
 }
 </script>
@@ -41,7 +49,7 @@ async function handleImport(event: Event) {
 <template>
   <v-list class="image-list">
     <v-list-item v-if="images.length === 0">
-      <v-list-item-title class="text-center">No images uploaded</v-list-item-title>
+      <v-list-item-title class="text-center">Images list is empty</v-list-item-title>
     </v-list-item>
     <v-list-item
       v-for="item in images"
@@ -69,7 +77,7 @@ async function handleImport(event: Event) {
             <v-icon icon="mdi-pencil" />
             <v-tooltip activator="parent" location="top">Edit</v-tooltip>
           </v-btn>
-          <v-btn icon="mdi-download" size="small" variant="text" @click="downloadImage(item)">
+          <v-btn icon="mdi-download" size="small" variant="text" @click="handleDownload(item)">
             <v-icon icon="mdi-download" />
             <v-tooltip activator="parent" location="top">Download image</v-tooltip>
           </v-btn>
@@ -104,11 +112,11 @@ async function handleImport(event: Event) {
   />
 
   <v-snackbar
-    :model-value="importError !== null"
+    :model-value="actionError !== null"
     color="error"
-    @update:model-value="importError = null"
+    @update:model-value="actionError = null"
   >
-    {{ importError }}
+    {{ actionError }}
   </v-snackbar>
 </template>
 

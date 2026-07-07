@@ -174,6 +174,20 @@ function apply() {
     transform: draftTransform.value,
   })
 }
+
+/**
+ * Re-seeds the draft from the current initial* props on demand, for callers
+ * that changed the *currently active* image's stored data out from under us
+ * (e.g. importing operations JSON for the image already open here) — the
+ * editingId watcher above only fires on an actual id change, so it can't
+ * pick this up by itself.
+ */
+function reseed() {
+  seedNonCropperDraft()
+  return restoreCropperState(props.initialCrop, props.initialTransform)
+}
+
+defineExpose({ reseed })
 </script>
 
 <template>

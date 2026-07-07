@@ -4,12 +4,15 @@ import { computed, ref } from 'vue'
 import EditorPanel from './components/Image/EditorPanel.vue'
 import ImageList from './components/Image/List.vue'
 import ImageUploader from './components/Image/Uploader.vue'
+import { useImageDropZone } from './composables/useImageDropZone'
 import { useImagesStore } from './stores/images'
 import { type Adjustments, type FilterName, defaultAdjustments } from './utils/filters'
+import type { OperationsInput } from './utils/operations'
 import { preloadImage } from './utils/preload'
 import { type Transform, defaultTransform } from './utils/transform'
 
 const imagesStore = useImagesStore()
+const editorPanelRef = ref<InstanceType<typeof EditorPanel> | null>(null)
 const editingId = ref<string | null>(null)
 const isNewUpload = ref(false)
 
@@ -39,6 +42,18 @@ function handleAdd(files: File[]) {
   if (ids.length === 1) openEditor(ids[0], true)
 }
 
+/**
+ * The list imports operations JSON straight into the store, bypassing
+ * EditorPanel entirely — if that import targets the image currently open in
+ * the panel, its draft is now stale (its editingId watcher only fires on an
+ * actual id change, which didn't happen here), so explicitly ask it to
+ * re-seed from the just-updated store values.
+ */
+function importOperations(id: string, input: OperationsInput) {
+  imagesStore.applyOperations(id, input)
+  if (id === editingId.value) editorPanelRef.value?.reseed()
+}
+
 function removeImage(id: string) {
   imagesStore.removeImage(id)
   if (editingId.value === id) {
@@ -47,47 +62,16 @@ function removeImage(id: string) {
   }
 }
 
-let dragDepth = 0
-const isDraggingFiles = ref(false)
-const dropError = ref<string | null>(null)
-
-function hasFiles(event: DragEvent): boolean {
-  return Array.from(event.dataTransfer?.types ?? []).includes('Files')
-}
-
-function onDragEnter(event: DragEvent) {
-  if (!hasFiles(event)) return
-  dragDepth += 1
-  isDraggingFiles.value = true
-}
-
-function onDragOver(event: DragEvent) {
-  if (hasFiles(event)) event.preventDefault()
-}
-
-function onDragLeave() {
-  dragDepth = Math.max(0, dragDepth - 1)
-  if (dragDepth === 0) isDraggingFiles.value = false
-}
-
-function onDrop(event: DragEvent) {
-  event.preventDefault()
-  dragDepth = 0
-  isDraggingFiles.value = false
-
-  const files = Array.from(event.dataTransfer?.files ?? [])
-  const rejected: string[] = []
-  for (const file of files) {
-    if (file.type.startsWith('image/')) {
-      imagesStore.addImage(file)
-    } else {
-      rejected.push(file.name)
-    }
-  }
-  if (rejected.length > 0) {
-    dropError.value = `Not an image, skipped: ${rejected.join(', ')}`
-  }
-}
+const {
+  isDragOver: isDraggingFiles,
+  rejectedNames: dropError,
+  onDragEnter,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+} = useImageDropZone((files) => {
+  files.forEach((file) => imagesStore.addImage(file))
+})
 
 function applyEdits(payload: {
   crop: Coordinates | null
@@ -125,11 +109,12 @@ function cancelEdit() {
               :active-id="editingId"
               @edit="openEditor"
               @remove="removeImage"
-              @import="imagesStore.applyOperations"
+              @import="importOperations"
             />
           </v-col>
           <v-col cols="12" md="8" lg="9">
             <EditorPanel
+              ref="editorPanelRef"
               :editing-id="editingId"
               :src="editingImage?.url ?? null"
               :initial-crop="editingImage?.cropCoordinates ?? null"
@@ -154,7 +139,7 @@ function cancelEdit() {
       color="error"
       @update:model-value="dropError = null"
     >
-      {{ dropError }}
+      Not an image, skipped: {{ dropError?.join(', ') }}
     </v-snackbar>
   </v-app>
 </template>

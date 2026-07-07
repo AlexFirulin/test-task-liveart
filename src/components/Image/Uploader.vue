@@ -1,71 +1,38 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useImageDropZone } from '../../composables/useImageDropZone'
 
 const emit = defineEmits<{ select: [files: File[]] }>()
 
 const inputRef = ref<HTMLInputElement | null>(null)
-const isDragOver = ref(false)
-const rejectedNames = ref<string[] | null>(null)
-let dragDepth = 0
+
+const { isDragOver, rejectedNames, onDragEnter, onDragOver, onDragLeave, onDrop, handleFiles } =
+  useImageDropZone((files) => emit('select', files))
 
 function triggerUpload() {
   inputRef.value?.click()
 }
 
-function splitByType(files: File[]): { accepted: File[]; rejected: string[] } {
-  const accepted: File[] = []
-  const rejected: string[] = []
-  for (const file of files) {
-    if (file.type.startsWith('image/')) accepted.push(file)
-    else rejected.push(file.name)
-  }
-  return { accepted, rejected }
-}
-
-function emitSelection(files: File[]) {
-  const { accepted, rejected } = splitByType(files)
-  if (accepted.length > 0) emit('select', accepted)
-  rejectedNames.value = rejected.length > 0 ? rejected : null
-}
-
 function handleChange(event: Event) {
   const input = event.target as HTMLInputElement
-  emitSelection(Array.from(input.files ?? []))
+  handleFiles(Array.from(input.files ?? []))
   input.value = ''
 }
 
-function hasFiles(event: DragEvent): boolean {
-  return Array.from(event.dataTransfer?.types ?? []).includes('Files')
+// This card sits inside App.vue's own page-wide drop zone — without
+// stopping propagation, a drop here would also bubble up and add every file
+// a second time.
+function stop<E extends Event>(handler: (event: E) => void) {
+  return (event: E) => {
+    event.stopPropagation()
+    handler(event)
+  }
 }
 
-function onDragEnter(event: DragEvent) {
-  if (!hasFiles(event)) return
-  event.stopPropagation()
-  dragDepth += 1
-  isDragOver.value = true
-}
-
-function onDragOver(event: DragEvent) {
-  if (!hasFiles(event)) return
-  event.preventDefault()
-  event.stopPropagation()
-}
-
-function onDragLeave(event: DragEvent) {
-  if (!hasFiles(event)) return
-  event.stopPropagation()
-  dragDepth = Math.max(0, dragDepth - 1)
-  if (dragDepth === 0) isDragOver.value = false
-}
-
-function onDrop(event: DragEvent) {
-  if (!hasFiles(event)) return
-  event.preventDefault()
-  event.stopPropagation()
-  dragDepth = 0
-  isDragOver.value = false
-  emitSelection(Array.from(event.dataTransfer?.files ?? []))
-}
+const onDragEnterLocal = stop(onDragEnter)
+const onDragOverLocal = stop(onDragOver)
+const onDragLeaveLocal = stop(onDragLeave)
+const onDropLocal = stop(onDrop)
 </script>
 
 <template>
@@ -74,10 +41,10 @@ function onDrop(event: DragEvent) {
     :class="{ 'image-uploader--drag-over': isDragOver }"
     elevation="0"
     @click="triggerUpload"
-    @dragenter="onDragEnter"
-    @dragover="onDragOver"
-    @dragleave="onDragLeave"
-    @drop="onDrop"
+    @dragenter="onDragEnterLocal"
+    @dragover="onDragOverLocal"
+    @dragleave="onDragLeaveLocal"
+    @drop="onDropLocal"
   >
     <input
       ref="inputRef"
