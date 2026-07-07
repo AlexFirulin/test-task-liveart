@@ -1,9 +1,5 @@
 # Test Task — Image Editor (Vue 3)
 
-We work in the printing industry, where preparing and adjusting images for output is everyday work. This task is a small browser-based image editor in that spirit. We're mainly interested in how you model the edits, not just the pixels.
-
-Plan for roughly a day. Get the requirements working first; the bonus section is optional.
-
 ## Stack & setup
 
 - Expected technologies

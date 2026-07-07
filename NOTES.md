@@ -15,6 +15,8 @@ The uploaded `File`/object URL is never mutated. Per image (`src/stores/images.t
 
 Crop never touches pixels either: `vue-advanced-cropper` only reports `{left, top, width, height}` in the original image's coordinate space (`Cropper.vue`). That rect is stored as-is and only used as the source-rect argument to `drawImage` at render time, whether that's the composed preview or the final export.
 
+**Safari < 18 caveat**: `CanvasRenderingContext2D#filter` is a silent no-op there (the assignment doesn't throw, it's just ignored), which would otherwise export an unfiltered image while the preview shows one with adjustments applied. `src/utils/export.ts#supportsCanvasFilter` feature-detects this once (round-trips a test value through `ctx.filter`), and when unsupported, `src/utils/filters.ts#applyAdjustmentsToPixels` reproduces `toCssFilter`'s brightness/contrast/saturate/grayscale/sepia pipeline manually via `getImageData`/`putImageData`, using the matrices from the CSS Filter Effects spec so the fallback output matches the CSS-filtered preview.
+
 ## JSON replay (bonus)
 
 `downloadOperationsJson` (`src/utils/export.ts`) serializes `{ version: 1, operations: toOperations(...) }` next to the image download. Because `toOperations` is the same pure function driving the preview, replaying is just: decode the original image, run the same crop/adjust/filter steps in order (source-rect draw, then `ctx.filter` from the adjust+filter ops) against a fresh canvas. No hidden state is needed beyond the array — that's why operations are tagged (`{ type: 'crop' | 'adjust' | 'filter', ... }`) rather than being three separate untyped fields once serialized.

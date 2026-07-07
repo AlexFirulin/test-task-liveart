@@ -34,12 +34,13 @@ const draftFilter = ref<FilterName | null>(null)
 const filter = computed(() => toCssFilter(draftAdjustments.value, draftFilter.value))
 
 watch(
-  () => props.src,
-  (src) => {
-    if (!src) return
+  () => props.modelValue,
+  (isOpen, wasOpen) => {
+    if (!isOpen || wasOpen) return
     draftCrop.value = props.initialCrop
     draftAdjustments.value = { ...props.initialAdjustments }
     draftFilter.value = props.initialFilter
+    if (props.initialCrop === null) cropperRef.value?.reset()
   },
 )
 
