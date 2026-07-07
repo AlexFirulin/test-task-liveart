@@ -4,7 +4,7 @@ import {
   defaultAdjustments,
   isNeutralAdjustments,
   toCssFilter,
-} from './filters'
+} from '../../src/utils/filters'
 
 describe('isNeutralAdjustments', () => {
   it('is neutral for the default adjustments', () => {

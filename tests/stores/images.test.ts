@@ -1,8 +1,8 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defaultAdjustments } from '../utils/filters'
-import { defaultTransform } from '../utils/transform'
-import { useImagesStore } from './images'
+import { defaultAdjustments } from '../../src/utils/filters'
+import { defaultTransform } from '../../src/utils/transform'
+import { useImagesStore } from '../../src/stores/images'
 
 function makeFile(name = 'photo.png'): File {
   return new File(['fake-bytes'], name, { type: 'image/png' })

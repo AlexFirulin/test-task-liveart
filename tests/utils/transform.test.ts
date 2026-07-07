@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { defaultTransform, isNeutralTransform, normalizeRotation, rotatedDimensions } from './transform'
+import {
+  defaultTransform,
+  isNeutralTransform,
+  normalizeRotation,
+  rotatedDimensions,
+} from '../../src/utils/transform'
 
 describe('isNeutralTransform', () => {
   it('is neutral for the default transform', () => {

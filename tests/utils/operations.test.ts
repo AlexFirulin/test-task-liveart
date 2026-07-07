@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { OperationsInput } from '../types/operations'
-import { defaultAdjustments } from './filters'
-import { fromOperations, parseOperationsFile, toOperations } from './operations'
-import { defaultTransform } from './transform'
+import type { OperationsInput } from '../../src/types/operations'
+import { defaultAdjustments } from '../../src/utils/filters'
+import { fromOperations, parseOperationsFile, toOperations } from '../../src/utils/operations'
+import { defaultTransform } from '../../src/utils/transform'
 
 const neutralInput: OperationsInput = {
   transform: defaultTransform,
