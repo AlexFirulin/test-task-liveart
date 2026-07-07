@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import type { Coordinates } from 'vue-advanced-cropper'
 import { ref, watch } from 'vue'
+import type { Adjustments, FilterName } from '../../utils/filters'
+import { drawPipeline } from '../../utils/render'
+import type { Transform } from '../../utils/transform'
 
 const props = defineProps<{
   src: string | null
   crop: Coordinates | null
-  filter: string
+  adjustments: Adjustments
+  filter: FilterName | null
+  transform: Transform
 }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -21,27 +26,23 @@ async function draw() {
   await image.decode()
   if (id !== requestId) return
 
-  const crop = props.crop ?? {
-    left: 0,
-    top: 0,
-    width: image.naturalWidth,
-    height: image.naturalHeight,
-  }
-
-  canvas.width = crop.width
-  canvas.height = crop.height
-
   const ctx = canvas.getContext('2d')
   if (!ctx) return
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-  ctx.drawImage(image, crop.left, crop.top, crop.width, crop.height, 0, 0, crop.width, crop.height)
+  drawPipeline(ctx, image, {
+    cropCoordinates: props.crop,
+    adjustments: props.adjustments,
+    filter: props.filter,
+    transform: props.transform,
+  })
 }
 
-watch(() => [props.src, props.crop], draw, { immediate: true })
+watch(() => [props.src, props.crop, props.adjustments, props.filter, props.transform], draw, {
+  immediate: true,
+})
 </script>
 
 <template>
-  <canvas ref="canvasRef" class="image-preview" :style="{ filter }" />
+  <canvas ref="canvasRef" class="image-preview" />
 </template>
 
 <style scoped>

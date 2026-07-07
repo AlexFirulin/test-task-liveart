@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { ImageItem } from '../../stores/images'
 import { downloadImage, downloadOperationsJson } from '../../utils/export'
-import { toCssFilter } from '../../utils/filters'
 import ImagePreview from './Preview.vue'
 
 defineProps<{ images: ImageItem[] }>()
@@ -22,7 +21,9 @@ const emit = defineEmits<{
           <ImagePreview
             :src="item.url"
             :crop="item.cropCoordinates"
-            :filter="toCssFilter(item.adjustments, item.filter)"
+            :adjustments="item.adjustments"
+            :filter="item.filter"
+            :transform="item.transform"
             style="width: 64px; height: 64px; object-fit: cover"
           />
         </div>

@@ -2,6 +2,7 @@ import type { Coordinates } from 'vue-advanced-cropper'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { type Adjustments, type FilterName, defaultAdjustments } from '../utils/filters'
+import { type Transform, defaultTransform } from '../utils/transform'
 
 export interface ImageItem {
   id: string
@@ -10,6 +11,7 @@ export interface ImageItem {
   cropCoordinates: Coordinates | null
   adjustments: Adjustments
   filter: FilterName | null
+  transform: Transform
 }
 
 export const useImagesStore = defineStore('images', () => {
@@ -27,6 +29,7 @@ export const useImagesStore = defineStore('images', () => {
       cropCoordinates: null,
       adjustments: { ...defaultAdjustments },
       filter: null,
+      transform: { ...defaultTransform },
     }
     images.value.push(item)
     return item.id
@@ -54,12 +57,18 @@ export const useImagesStore = defineStore('images', () => {
     if (item) item.filter = filter
   }
 
+  function setTransform(id: string, transform: Transform) {
+    const item = findImage(id)
+    if (item) item.transform = transform
+  }
+
   function resetEdits(id: string) {
     const item = findImage(id)
     if (!item) return
     item.cropCoordinates = null
     item.adjustments = { ...defaultAdjustments }
     item.filter = null
+    item.transform = { ...defaultTransform }
   }
 
   return {
@@ -69,6 +78,7 @@ export const useImagesStore = defineStore('images', () => {
     setCrop,
     setAdjustments,
     setFilter,
+    setTransform,
     resetEdits,
   }
 })

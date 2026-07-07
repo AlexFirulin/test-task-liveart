@@ -7,6 +7,7 @@ import ImageUploader from './components/Image/Uploader.vue'
 import { useImagesStore } from './stores/images'
 import { type Adjustments, type FilterName, defaultAdjustments } from './utils/filters'
 import { preloadImage } from './utils/preload'
+import { type Transform, defaultTransform } from './utils/transform'
 
 const imagesStore = useImagesStore()
 const editingId = ref<string | null>(null)
@@ -36,11 +37,13 @@ function applyEdits(payload: {
   crop: Coordinates | null
   adjustments: Adjustments
   filter: FilterName | null
+  transform: Transform
 }) {
   if (!editingId.value) return
   imagesStore.setCrop(editingId.value, payload.crop)
   imagesStore.setAdjustments(editingId.value, payload.adjustments)
   imagesStore.setFilter(editingId.value, payload.filter)
+  imagesStore.setTransform(editingId.value, payload.transform)
 }
 
 function cancelEdit() {
@@ -69,6 +72,7 @@ function cancelEdit() {
           :initial-crop="editingImage?.cropCoordinates ?? null"
           :initial-adjustments="editingImage?.adjustments ?? defaultAdjustments"
           :initial-filter="editingImage?.filter ?? null"
+          :initial-transform="editingImage?.transform ?? defaultTransform"
           @apply="applyEdits"
           @cancel="cancelEdit"
         />
