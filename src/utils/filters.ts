@@ -18,7 +18,16 @@ export function isNeutralAdjustments(adjustments: Adjustments): boolean {
   )
 }
 
-export type FilterName = 'greyscale' | 'sepia'
+export type FilterName = 'greyscale' | 'sepia' | 'invert' | 'warm' | 'cool' | 'vintage'
+
+const FILTER_CSS: Record<FilterName, string> = {
+  greyscale: 'grayscale(1)',
+  sepia: 'sepia(1)',
+  invert: 'invert(100%)',
+  warm: 'sepia(30%) saturate(140%) hue-rotate(-10deg)',
+  cool: 'saturate(120%) hue-rotate(10deg) brightness(102%)',
+  vintage: 'sepia(50%) contrast(85%) brightness(105%) saturate(120%)',
+}
 
 export function toCssFilter(adjustments: Adjustments, filter: FilterName | null = null): string {
   const parts = [
@@ -26,8 +35,7 @@ export function toCssFilter(adjustments: Adjustments, filter: FilterName | null 
     `contrast(${adjustments.contrast}%)`,
     `saturate(${adjustments.saturation}%)`,
   ]
-  if (filter === 'greyscale') parts.push('grayscale(1)')
-  if (filter === 'sepia') parts.push('sepia(1)')
+  if (filter) parts.push(FILTER_CSS[filter])
   return parts.join(' ')
 }
 
@@ -38,9 +46,12 @@ function clamp255(value: number): number {
 /**
  * Pixel-space fallback for browsers where CanvasRenderingContext2D#filter is a
  * no-op (e.g. Safari < 18), applied in the same order as toCssFilter
- * (brightness -> contrast -> saturate -> grayscale/sepia) using the matrices
- * from the CSS Filter Effects spec (https://www.w3.org/TR/filter-effects-1/#FilterPrimitiveRepresentation),
- * so the exported pixels match the CSS-filtered preview.
+ * (brightness -> contrast -> saturate -> filter) using the matrices from the
+ * CSS Filter Effects spec (https://www.w3.org/TR/filter-effects-1/#FilterPrimitiveRepresentation),
+ * so the exported pixels match the CSS-filtered preview. Only covers
+ * greyscale/sepia so far — invert/warm/cool/vintage (FILTER_CSS above) fall
+ * back to the brightness/contrast/saturate result alone on unsupported
+ * browsers, i.e. the filter itself is dropped there.
  */
 export function applyAdjustmentsToPixels(
   data: Uint8ClampedArray,

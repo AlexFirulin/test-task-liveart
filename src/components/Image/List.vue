@@ -1,13 +1,41 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { ImageItem } from '../../stores/images'
 import { downloadImage, downloadOperationsJson } from '../../utils/export'
+import { type OperationsInput, parseOperationsFile } from '../../utils/operations'
 import ImagePreview from './Preview.vue'
 
 defineProps<{ images: ImageItem[] }>()
 const emit = defineEmits<{
   edit: [id: string]
   remove: [id: string]
+  import: [id: string, input: OperationsInput]
 }>()
+
+const importInputRef = ref<HTMLInputElement | null>(null)
+const importTargetId = ref<string | null>(null)
+const importError = ref<string | null>(null)
+
+function triggerImport(id: string) {
+  importTargetId.value = id
+  importInputRef.value?.click()
+}
+
+async function handleImport(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  const id = importTargetId.value
+  input.value = ''
+  importTargetId.value = null
+  if (!file || !id) return
+
+  try {
+    const operationsInput = parseOperationsFile(await file.text())
+    emit('import', id, operationsInput)
+  } catch (error) {
+    importError.value = error instanceof Error ? error.message : 'Failed to import operations JSON'
+  }
+}
 </script>
 
 <template>
@@ -41,11 +69,28 @@ const emit = defineEmits<{
             variant="text"
             @click="downloadOperationsJson(item)"
           />
+          <v-btn icon="mdi-upload" size="small" variant="text" @click="triggerImport(item.id)" />
           <v-btn icon="mdi-delete" size="small" variant="text" @click="emit('remove', item.id)" />
         </div>
       </template>
     </v-list-item>
   </v-list>
+
+  <input
+    ref="importInputRef"
+    type="file"
+    accept="application/json"
+    class="d-none"
+    @change="handleImport"
+  />
+
+  <v-snackbar
+    :model-value="importError !== null"
+    color="error"
+    @update:model-value="importError = null"
+  >
+    {{ importError }}
+  </v-snackbar>
 </template>
 
 <style scoped>

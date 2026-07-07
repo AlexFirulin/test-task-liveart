@@ -2,6 +2,7 @@ import type { Coordinates } from 'vue-advanced-cropper'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { type Adjustments, type FilterName, defaultAdjustments } from '../utils/filters'
+import type { OperationsInput } from '../utils/operations'
 import { type Transform, defaultTransform } from '../utils/transform'
 
 export interface ImageItem {
@@ -62,6 +63,15 @@ export const useImagesStore = defineStore('images', () => {
     if (item) item.transform = transform
   }
 
+  function applyOperations(id: string, input: OperationsInput) {
+    const item = findImage(id)
+    if (!item) return
+    item.transform = input.transform
+    item.cropCoordinates = input.crop
+    item.adjustments = input.adjustments
+    item.filter = input.filter
+  }
+
   function resetEdits(id: string) {
     const item = findImage(id)
     if (!item) return
@@ -79,6 +89,7 @@ export const useImagesStore = defineStore('images', () => {
     setAdjustments,
     setFilter,
     setTransform,
+    applyOperations,
     resetEdits,
   }
 })

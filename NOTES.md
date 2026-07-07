@@ -12,7 +12,7 @@ The uploaded `File`/object URL is never mutated. Per image (`src/stores/images.t
 
 ## Why CSS/canvas filters, not manual pixel processing
 
-`src/utils/filters.ts#toCssFilter` builds one CSS filter string (`brightness() contrast() saturate() [grayscale()|sepia()]`) from the same `adjustments`/`filter` state. That string is used two ways:
+`src/utils/filters.ts#toCssFilter` builds one CSS filter string (`brightness() contrast() saturate()` plus the selected preset's snippet from `FILTER_CSS`, if any) from the same `adjustments`/`filter` state. That string is used two ways:
 
 - **Live crop-tool preview** (while editing, before Apply): applied as a `style="filter: …"` on the wrapper around the interactive cropper — free, GPU-accelerated, no per-frame pixel loop, so sliders feel instant while dragging.
 - **Thumbnails and export**: baked directly into canvas pixels via `ctx.filter` inside `src/utils/render.ts#drawPipeline`, the one function used by both `Preview.vue` (list thumbnails) and `src/utils/export.ts#downloadImage`, so the exported PNG is pixel-for-pixel what was previewed. One function, every call site — preview and export can't drift apart.
@@ -25,6 +25,8 @@ Crop never touches pixels either: `vue-advanced-cropper` only reports `{left, to
 
 `downloadOperationsJson` (`src/utils/export.ts`) serializes `{ version: 1, operations: toOperations(...) }` next to the image download. Because `toOperations` is the same pure function driving the preview, replaying is just: decode the original image, run the same transform/crop/adjust/filter steps in order (canvas transform, source-rect draw, then `ctx.filter` from the adjust+filter ops) against a fresh canvas. No hidden state is needed beyond the array — that's why operations are tagged (`{ type: 'transform' | 'crop' | 'adjust' | 'filter', ... }`) rather than being untyped fields once serialized.
 
+JSON isn't just exported anymore — it can be re-imported too, via the per-image "import JSON" button in `List.vue`. `src/utils/operations.ts#fromOperations` is the strict inverse of `toOperations` (missing slots fall back to the same neutral defaults `toOperations` treats as "omit"), and `parseOperationsFile` validates a raw JSON string field-by-field before calling it — no `Number(x) ?? fallback`-style silent coercion; a missing/wrong-typed field, an unknown operation `type`, an out-of-range `rotate`/`filter.name`, a duplicate operation type, or an unsupported `version` all throw a specific error instead. As a final check, `parseOperationsFile` re-runs `toOperations` on the value it's about to return and requires the result to exactly match the parsed array — since it's the same function that drives the live preview and the export, this one assertion is what guarantees the import round-trips byte-for-byte with what was exported, and it also catches malformed-but-individually-valid input (wrong operation order, an explicitly-included no-op) that field-level checks alone wouldn't. The store's `applyOperations(id, input)` then just writes the four fields straight into the existing `ImageItem` slots — no parallel "apply an operations list" code path, it's the same state everything else already reads from.
+
 ## Why dark theme by default
 
 Set in `src/plugins/vuetify.ts` (`theme.defaultTheme: 'dark'`). This isn't a stylistic default — image/print editors (Lightroom, Photoshop) default to dark chrome specifically because a neutral, low-luminance surround doesn't bias how brightness, contrast, and saturation are perceived against the working image. For a printing-industry reviewer this is meant to signal that the choice is domain-aware, not decorative.
@@ -33,8 +35,10 @@ Set in `src/plugins/vuetify.ts` (`theme.defaultTheme: 'dark'`). This isn't a sty
 
 Both bonus items are done:
 
-- **Filter**: greyscale and sepia, modeled as a single nullable `FilterOperation` slot (mutually exclusive by construction — the UI checkboxes in `src/components/Filters/FilterPanel.vue` just null out the other on selection), expressed as CSS `grayscale(1)`/`sepia(1)` appended to the same filter string.
+- **Filter**: six presets (greyscale, sepia, invert, warm, cool, vintage), still modeled as a single nullable `FilterOperation` slot (`src/utils/filters.ts#FILTER_CSS`, a `Record<FilterName, string>` keyed by name) — mutually exclusive by construction, now via a single-select `v-chip-group` in `src/components/Filters/FilterPanel.vue` (clicking the active chip again clears it back to `null`, same "exactly one or none" semantics as the old checkbox pair) instead of two checkboxes.
 - **JSON export**: per-image "download JSON" button in the list, shape described above.
+
+Deliberately not adding `blur()` or any other filter expressed in absolute pixels: a blur radius is a fixed pixel count, not scale-invariant, so it would look different on a downscaled thumbnail preview than in the full-resolution export — breaking the "preview = export" guarantee everything else here is built around. All filter presets are kept to percentage/angle-based CSS functions (`sepia()`, `saturate()`, `hue-rotate()`, `brightness()`, `contrast()`, `invert()`) for exactly this reason.
 
 ## Scope note
 

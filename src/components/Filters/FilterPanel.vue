@@ -4,26 +4,30 @@ import type { FilterName } from '../../utils/filters'
 defineProps<{ modelValue: FilterName | null }>()
 const emit = defineEmits<{ 'update:modelValue': [value: FilterName | null] }>()
 
-function toggle(name: FilterName, checked: boolean | null) {
-  emit('update:modelValue', checked ? name : null)
-}
+const options: { label: string; value: FilterName }[] = [
+  { label: 'Greyscale', value: 'greyscale' },
+  { label: 'Sepia', value: 'sepia' },
+  { label: 'Invert', value: 'invert' },
+  { label: 'Warm', value: 'warm' },
+  { label: 'Cool', value: 'cool' },
+  { label: 'Vintage', value: 'vintage' },
+]
 </script>
 
 <template>
-  <div class="filter-panel d-flex ga-4">
-    <v-checkbox
-      label="Greyscale"
-      :model-value="modelValue === 'greyscale'"
-      hide-details
-      density="compact"
-      @update:model-value="(checked) => toggle('greyscale', checked)"
-    />
-    <v-checkbox
-      label="Sepia"
-      :model-value="modelValue === 'sepia'"
-      hide-details
-      density="compact"
-      @update:model-value="(checked) => toggle('sepia', checked)"
-    />
-  </div>
+  <v-chip-group
+    class="filter-panel"
+    :model-value="modelValue ?? undefined"
+    @update:model-value="emit('update:modelValue', $event ?? null)"
+  >
+    <v-chip
+      v-for="option in options"
+      :key="option.value"
+      :value="option.value"
+      size="small"
+      variant="outlined"
+    >
+      {{ option.label }}
+    </v-chip>
+  </v-chip-group>
 </template>

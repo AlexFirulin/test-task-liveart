@@ -64,6 +64,7 @@ function cancelEdit() {
           :images="imagesStore.images"
           @edit="openEditor"
           @remove="imagesStore.removeImage"
+          @import="imagesStore.applyOperations"
         />
 
         <ImageEditorDialog
