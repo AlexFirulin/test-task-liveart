@@ -5,7 +5,7 @@ import { downloadImage, downloadOperationsJson } from '../../utils/export'
 import { type OperationsInput, parseOperationsFile } from '../../utils/operations'
 import ImagePreview from './Preview.vue'
 
-defineProps<{ images: ImageItem[]; activeId: string | null }>()
+const props = defineProps<{ images: ImageItem[]; activeId: string | null }>()
 const emit = defineEmits<{
   edit: [id: string]
   remove: [id: string]
@@ -18,11 +18,21 @@ const actionError = ref<string | null>(null)
 const downloadingIds = ref<Set<string>>(new Set())
 const exportingIds = ref<Set<string>>(new Set())
 
+// Same-named uploads (e.g. two "photo.jpg" from different folders) would
+// otherwise silently overwrite each other's downloaded file — give the
+// duplicates a short, stable suffix so each download lands as its own file.
+function uniqueSuffixFor(item: ImageItem): string | undefined {
+  const isDuplicateName = props.images.some(
+    (other) => other.id !== item.id && other.file.name === item.file.name,
+  )
+  return isDuplicateName ? item.id.slice(0, 6) : undefined
+}
+
 async function handleDownload(item: ImageItem) {
   if (downloadingIds.value.has(item.id)) return
   downloadingIds.value.add(item.id)
   try {
-    await downloadImage(item)
+    await downloadImage(item, uniqueSuffixFor(item))
   } catch {
     actionError.value = 'Failed to export: the file is corrupted or unavailable'
   } finally {
@@ -34,7 +44,7 @@ async function handleExportJson(item: ImageItem) {
   if (exportingIds.value.has(item.id)) return
   exportingIds.value.add(item.id)
   try {
-    downloadOperationsJson(item)
+    downloadOperationsJson(item, uniqueSuffixFor(item))
   } catch {
     actionError.value = 'Failed to export operations JSON'
   } finally {
