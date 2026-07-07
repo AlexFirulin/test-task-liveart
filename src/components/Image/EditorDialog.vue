@@ -64,7 +64,13 @@ const draftTransform = ref<Transform>({ ...defaultTransform })
 // export, only the resulting cropCoordinates do.
 const aspectRatioIndex = ref(0)
 const aspectRatio = computed(() => aspectRatioPresets[aspectRatioIndex.value].value)
-const filter = computed(() => toCssFilter(draftAdjustments.value, draftFilter.value))
+// View-only: held down to peek at the original image. Doesn't touch the
+// draft or the store — releasing the button falls straight back to
+// draftAdjustments/draftFilter via this same computed.
+const isComparing = ref(false)
+const filter = computed(() =>
+  isComparing.value ? 'none' : toCssFilter(draftAdjustments.value, draftFilter.value),
+)
 const cropperTransform = computed(() => toCssTransform(draftTransform.value))
 
 watch(
@@ -137,6 +143,17 @@ function apply() {
           <v-btn icon="mdi-rotate-right" size="small" variant="text" @click="rotateDraftRight" />
           <v-btn icon="mdi-flip-horizontal" size="small" variant="text" @click="flipDraftX" />
           <v-btn icon="mdi-flip-vertical" size="small" variant="text" @click="flipDraftY" />
+          <v-btn
+            icon="mdi-eye-outline"
+            size="small"
+            variant="text"
+            title="Hold to view original"
+            @mousedown="isComparing = true"
+            @mouseup="isComparing = false"
+            @mouseleave="isComparing = false"
+            @touchstart.prevent="isComparing = true"
+            @touchend="isComparing = false"
+          />
         </div>
         <v-chip-group v-model="aspectRatioIndex" mandatory class="mb-2">
           <v-chip
