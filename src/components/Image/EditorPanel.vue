@@ -1,13 +1,23 @@
 <script setup lang="ts">
 import type { Coordinates, ImageTransforms } from 'vue-advanced-cropper'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useEditHistory } from '../../composables/useEditHistory'
 import type { Adjustments, FilterName } from '../../types/adjustments'
+import type { OperationsInput } from '../../types/operations'
 import type { Transform } from '../../types/transform'
+import { debounce } from '../../utils/debounce'
 import { defaultAdjustments, toCssFilter } from '../../utils/filters'
 import { defaultTransform, normalizeRotation } from '../../utils/transform'
 import AdjustmentsPanel from '../Filters/AdjustmentsPanel.vue'
 import FilterPanel from '../Filters/FilterPanel.vue'
 import ImageCropper from './Cropper.vue'
+
+// vue-advanced-cropper's crop drag/resize and our own rotate()/flip() calls
+// all funnel through the single `change` event with no native "gesture
+// ended" signal (unlike v-slider's `end`) — so unlike the adjustments
+// sliders, this path needs an actual debounce to collapse a drag into one
+// history step instead of pushing on every intermediate frame.
+const CROP_HISTORY_DEBOUNCE_MS = 400
 
 const props = defineProps<{
   editingId: string | null
@@ -72,6 +82,40 @@ const filter = computed(() =>
   isComparing.value ? 'none' : toCssFilter(draftAdjustments.value, draftFilter.value),
 )
 
+const {
+  canUndo: canUndoHistory,
+  canRedo: canRedoHistory,
+  reset: resetHistory,
+  pushSnapshot: pushHistorySnapshot,
+  undo: popUndo,
+  redo: popRedo,
+} = useEditHistory<OperationsInput>()
+
+// Set while EditorPanel itself is driving the cropper programmatically
+// (seeding the baseline on open/switch, or applying an undo/redo snapshot) —
+// those calls fire the same `change` event a real user drag would, and must
+// not be mistaken for a new discrete edit worth a history entry.
+const isRestoringCropperState = ref(false)
+
+function currentSnapshot(): OperationsInput {
+  return {
+    transform: draftTransform.value,
+    crop: draftCrop.value,
+    adjustments: draftAdjustments.value,
+    filter: draftFilter.value,
+  }
+}
+
+function commitHistory(): void {
+  pushHistorySnapshot(currentSnapshot())
+}
+
+const cropHistoryCommit = debounce(commitHistory, CROP_HISTORY_DEBOUNCE_MS)
+
+onBeforeUnmount(() => {
+  cropHistoryCommit.cancel()
+})
+
 /**
  * The cropper reports crop coordinates and rotate/flip together on every
  * change (drag, resize, or our own rotate()/flip() calls below) — this is
@@ -86,6 +130,11 @@ function onCropperChange(coordinates: Coordinates, transforms: ImageTransforms) 
     flipX: transforms.flip.horizontal,
     flipY: transforms.flip.vertical,
   }
+  // Only a real user interaction (crop drag/resize, or a rotate/flip button
+  // click) should ever reach here while unguarded — programmatic restoration
+  // always wraps its call in isRestoringCropperState and handles history
+  // itself once settled (see restoreCropperStateGuarded below).
+  if (!isRestoringCropperState.value) cropHistoryCommit.run()
 }
 
 /**
@@ -120,6 +169,25 @@ async function restoreCropperState(targetCrop: Coordinates | null, targetTransfo
   applyCropperState(targetCrop, targetTransform)
 }
 
+/**
+ * Wraps restoreCropperState with the isRestoringCropperState guard so the
+ * change events it triggers don't get mistaken for a user edit, then lets
+ * the caller decide what happens to history once the cropper has settled —
+ * a fresh baseline (reset), a new undoable step (pushSnapshot), or replaying
+ * an undo/redo result (neither — the snapshot IS the history entry already).
+ */
+async function restoreCropperStateGuarded(
+  targetCrop: Coordinates | null,
+  targetTransform: Transform,
+): Promise<void> {
+  isRestoringCropperState.value = true
+  try {
+    await restoreCropperState(targetCrop, targetTransform)
+  } finally {
+    isRestoringCropperState.value = false
+  }
+}
+
 /** The parts of the draft that don't depend on the cropper's async image-load state. */
 function seedNonCropperDraft() {
   draftAdjustments.value = { ...props.initialAdjustments }
@@ -127,7 +195,10 @@ function seedNonCropperDraft() {
   aspectRatioIndex.value = 0
 }
 
-watch(() => props.editingId, seedNonCropperDraft)
+watch(() => props.editingId, () => {
+  cropHistoryCommit.cancel()
+  seedNonCropperDraft()
+})
 
 /**
  * Fires once per image successfully loaded into the cropper (including the
@@ -138,7 +209,9 @@ watch(() => props.editingId, seedNonCropperDraft)
  */
 async function onCropperReady() {
   await nextTick()
-  await restoreCropperState(props.initialCrop, props.initialTransform)
+  cropHistoryCommit.cancel() // a stale pending commit from the previous image must not land here
+  await restoreCropperStateGuarded(props.initialCrop, props.initialTransform)
+  resetHistory(currentSnapshot())
 }
 
 function rotateDraftLeft() {
@@ -157,11 +230,16 @@ function flipDraftY() {
   cropperRef.value?.flip(false, true)
 }
 
-function resetDraft() {
+// Reset is treated as an ordinary discrete edit, not a history wipe: it
+// mutates the same four draft slots every other action does, so it needs no
+// special-casing to become undoable — Ctrl+Z after an accidental Reset click
+// gets you back to what you had, same as every other action here.
+async function resetDraft() {
   draftAdjustments.value = { ...defaultAdjustments }
   draftFilter.value = null
   aspectRatioIndex.value = 0
-  restoreCropperState(null, defaultTransform)
+  await restoreCropperStateGuarded(null, defaultTransform)
+  commitHistory()
 }
 
 function apply() {
@@ -173,6 +251,52 @@ function apply() {
   })
 }
 
+async function applyHistorySnapshot(snapshot: OperationsInput): Promise<void> {
+  draftAdjustments.value = snapshot.adjustments
+  draftFilter.value = snapshot.filter
+  await restoreCropperStateGuarded(snapshot.crop, snapshot.transform)
+}
+
+async function handleUndo(): Promise<void> {
+  const snapshot = popUndo()
+  if (snapshot) await applyHistorySnapshot(snapshot)
+}
+
+async function handleRedo(): Promise<void> {
+  const snapshot = popRedo()
+  if (snapshot) await applyHistorySnapshot(snapshot)
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (!props.src) return
+  if (isTypingTarget(event.target)) return
+  if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return
+  event.preventDefault()
+  if (event.shiftKey) {
+    handleRedo()
+  } else {
+    handleUndo()
+  }
+}
+
+window.addEventListener('keydown', onKeydown)
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+})
+
+// FilterPanel's chip selection is already a single discrete click per
+// change (unlike the sliders, there's no continuous @input stream to
+// filter out), so it can commit directly on every update.
+function setFilter(value: FilterName | null) {
+  draftFilter.value = value
+  commitHistory()
+}
+
 /**
  * Re-seeds the draft from the current initial* props on demand, for callers
  * that changed the *currently active* image's stored data out from under us
@@ -180,9 +304,15 @@ function apply() {
  * editingId watcher above only fires on an actual id change, so it can't
  * pick this up by itself.
  */
-function reseed() {
+// Importing a JSON recipe onto the image currently open in this panel
+// (App.vue#importOperations) still happens mid-session — it's one more
+// discrete change to the same four slots, so it's pushed as a step rather
+// than wiping history: Ctrl+Z after an unwanted import gets you back to
+// what was open before it, consistent with how Reset is handled above.
+async function reseed() {
   seedNonCropperDraft()
-  return restoreCropperState(props.initialCrop, props.initialTransform)
+  await restoreCropperStateGuarded(props.initialCrop, props.initialTransform)
+  commitHistory()
 }
 
 defineExpose({ reseed })
@@ -225,6 +355,26 @@ defineExpose({ reseed })
           <v-col cols="12" md="4">
             <div class="text-subtitle-1 mb-2">Movements</div>
             <div class="d-flex ga-2 mb-4">
+              <v-btn
+                icon="mdi-undo"
+                size="small"
+                variant="text"
+                :disabled="!canUndoHistory"
+                @click="handleUndo"
+              >
+                <v-icon icon="mdi-undo" />
+                <v-tooltip activator="parent" location="top">Undo (Ctrl/Cmd+Z)</v-tooltip>
+              </v-btn>
+              <v-btn
+                icon="mdi-redo"
+                size="small"
+                variant="text"
+                :disabled="!canRedoHistory"
+                @click="handleRedo"
+              >
+                <v-icon icon="mdi-redo" />
+                <v-tooltip activator="parent" location="top">Redo (Ctrl/Cmd+Shift+Z)</v-tooltip>
+              </v-btn>
               <v-btn icon="mdi-rotate-left" size="small" variant="text" @click="rotateDraftLeft">
                 <v-icon icon="mdi-rotate-left" />
                 <v-tooltip activator="parent" location="top">Rotate left</v-tooltip>
@@ -256,10 +406,14 @@ defineExpose({ reseed })
               </v-btn>
             </div>
             <div class="text-subtitle-1 mb-2">Adjustments</div>
-            <AdjustmentsPanel v-model="draftAdjustments" />
+            <AdjustmentsPanel
+              :model-value="draftAdjustments"
+              @update:model-value="draftAdjustments = $event"
+              @commit="commitHistory"
+            />
             <v-divider class="my-4" />
             <div class="text-subtitle-1 mb-2">Filters</div>
-            <FilterPanel v-model="draftFilter" />
+            <FilterPanel :model-value="draftFilter" @update:model-value="setFilter" />
           </v-col>
         </v-row>
       </v-card-text>

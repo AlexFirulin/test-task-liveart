@@ -2,7 +2,7 @@
 import type { Adjustments } from '../../types/adjustments'
 
 const props = defineProps<{ modelValue: Adjustments }>()
-const emit = defineEmits<{ 'update:modelValue': [value: Adjustments] }>()
+const emit = defineEmits<{ 'update:modelValue': [value: Adjustments]; commit: [] }>()
 
 const ADJUSTMENT_MIN = 0
 const ADJUSTMENT_MAX = 200
@@ -21,6 +21,7 @@ function updateFromText<K extends keyof Adjustments>(key: K, value: string) {
 
 function resetToDefault<K extends keyof Adjustments>(key: K) {
   update(key, ADJUSTMENT_DEFAULT as Adjustments[K])
+  emit('commit')
 }
 </script>
 
@@ -34,6 +35,7 @@ function resetToDefault<K extends keyof Adjustments>(key: K) {
         :step="1"
         class="adjustments-panel__slider"
         @update:model-value="update('brightness', $event)"
+        @end="emit('commit')"
       >
         <template #label>
           <span class="adjustments-panel__label" @dblclick="resetToDefault('brightness')">
@@ -51,6 +53,7 @@ function resetToDefault<K extends keyof Adjustments>(key: K) {
         :max="ADJUSTMENT_MAX"
         class="adjustments-panel__input"
         @update:model-value="updateFromText('brightness', $event)"
+        @change="emit('commit')"
       />
     </div>
     <div class="adjustments-panel__row">
@@ -61,6 +64,7 @@ function resetToDefault<K extends keyof Adjustments>(key: K) {
         :step="1"
         class="adjustments-panel__slider"
         @update:model-value="update('contrast', $event)"
+        @end="emit('commit')"
       >
         <template #label>
           <span class="adjustments-panel__label" @dblclick="resetToDefault('contrast')">
@@ -78,6 +82,7 @@ function resetToDefault<K extends keyof Adjustments>(key: K) {
         :max="ADJUSTMENT_MAX"
         class="adjustments-panel__input"
         @update:model-value="updateFromText('contrast', $event)"
+        @change="emit('commit')"
       />
     </div>
     <div class="adjustments-panel__row">
@@ -88,6 +93,7 @@ function resetToDefault<K extends keyof Adjustments>(key: K) {
         :step="1"
         class="adjustments-panel__slider"
         @update:model-value="update('saturation', $event)"
+        @end="emit('commit')"
       >
         <template #label>
           <span class="adjustments-panel__label" @dblclick="resetToDefault('saturation')">
@@ -105,6 +111,7 @@ function resetToDefault<K extends keyof Adjustments>(key: K) {
         :max="ADJUSTMENT_MAX"
         class="adjustments-panel__input"
         @update:model-value="updateFromText('saturation', $event)"
+        @change="emit('commit')"
       />
     </div>
   </div>
